@@ -72,7 +72,7 @@ app.post("/login/", async (request, response) => {
 
     if (isPasswordMatched) {
       const payload = { username: username };
-      const jwtToken = jwt.sign(payload, "my code");
+      const jwtToken = jwt.sign(payload, "my_code");
       response.send({ jwtToken });
       console.log({ jwtToken });
     } else {
@@ -89,16 +89,18 @@ const authorizationToken = (request, response, next) => {
   const authorHeader = request.headers["authorization"];
   console.log("author block");
   //console.log(authorHeader);
+  if (authorHeader !== undefined) {
+    jwtToken = authorHeader.split(" ")[1];
+    console.log(jwtToken);
+  }
   if (authorHeader === undefined) {
     console.log("no token");
     response.status(401);
     response.send("Invalid JWT Token");
   } else {
     console.log("verifying");
-    jwtToken = authorHeader.split(" ")[1];
-    console.log(jwtToken);
-    jwt.verify(jwtToken, "my code", async (error, payload) => {
-      console.log(error.message);
+
+    jwt.verify(jwtToken, "my_code", async (error, payload) => {
       if (error) {
         response.status(401);
         response.send("Invalid JWT Token");
