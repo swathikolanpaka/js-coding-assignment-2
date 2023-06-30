@@ -117,17 +117,23 @@ const authorizationToken = (request, response, next) => {
 //API 3
 app.get("/user/tweets/feed/", authorizationToken, async (request, response) => {
   console.log("working");
-  let query = `SELECT user.username,tweet.tweet,tweet.date_time as dateTime FROM (user INNER JOIN tweet) ON user.user_id=tweet.user_id 
-  ORDER BY date_time "DESC" 
-  LIMIT 4 ;`;
-  let array = await db.all(query);
-  response.send(array);
+  let userName = request.username;
+  let userQuery = `SELECT * FROM user WHERE username="${userName}";`;
+  let userDetails = await db.get(userQuery);
+
+  let userId = userDetails.user_id;
+  let tweetQuery = `SELECT user.username,tweet.tweet,tweet.date_time AS dateTime FROM follower INNER JOIN tweet ON follower.following_user_id = tweet.user_id WHERE follower.follower_user_id = ${userId}
+   ORDER BY
+  tweet.date_time DESC
+  LIMIT 4;`;
+  let tweetResult = await db.get(tweetQuery);
+  resp0nse.send(tweetResult);
 });
 
 //API 4
 app.get("/user/following/", authorizationToken, async (request, response) => {
   console.log("working");
-  let query = `SELECT user.name  FROM user INNER JOIN follower ON user.user_id=follower.follower_user_id;`;
+  let query = `SELECT user.name  FROM user INNER JOIN follower ON user.user_id=follower.following_user_id;`;
   let array = await db.all(query);
   response.send(array);
 });
@@ -143,6 +149,21 @@ app.get("/user/followers/", authorizationToken, async (request, response) => {
 //API 6
 app.get("/tweets/:tweetId/", authorizationToken, async (request, response) => {
   let { tweetId } = request.params;
+  let tweetQuery = `SELECT * FROM tweet WHERE tweet_id=${tweetId};`;
+  let tweetResult = await db.get(tweetQuery);
+  let userFollowerQuery = `SELECT * FROM follower INNER JOIN user ON follower.following_user_id=user.user_id WHERE follower.follower_user_id===tweetResult.user_id;`;
+  let userFollowerDetails = await db.all(userFollowerQuery);
+
+  if (
+    userFollowerDetails.some(
+      (item) => item.following_user_id === tweetResult.user_id
+    )
+  ) {
+    console.log("result");
+  } else {
+    response.status(401);
+    response.send("Invalid Request");
+  }
 });
 
 //API 7
@@ -174,14 +195,14 @@ app.get("/user/tweets/", authorizationToken, async (request, response) => {
 
 //API 10
 app.post("/user/tweets/", authorizationToken, async (request, response) => {
-  let { tweetId, tweet, useId, dateTime } = request.body;
-  let query = `INSET INTO tweet (tweet_id,tweet,user_id,date_time) 
+  let { tweetId, tweet, userId, dateTime } = request.body;
+  let query = `INSET INTO tweet (tweetId,tweet,user_id,date_time) 
     VALUES
     (
         ${tweetId},
         "${tweet}",
         ${userId},
-        ${dateTime}
+        "${dateTime}"
     );`;
   let array = await db.run(query);
   response.send("Created a Tweet");
@@ -193,9 +214,24 @@ app.delete(
   authorizationToken,
   async (request, response) => {
     let { tweetId } = request.params;
-    let query = `DELETE FROM tweet WHERE tweet_id=${tweetId};`;
-    await db.run(query);
-    response.send("Tweet Removed");
+    let tweetQuery = `SELECT * FROM tweet WHERE tweet_id=${tweetId};`;
+    let tweetResult = await db.get(tweetQuery);
+    let userFollowerQuery = `SELECT * FROM follower INNER JOIN user ON follower.following_user_id=user.user_id WHERE follower.follower_user_id===tweetResult.user_id;`;
+    let userFollowerDetails = await db.all(userFollowerQuery);
+
+    if (
+      userFollowerDetails.some(
+        (item) => item.following_user_id === tweetResult.user_id
+      )
+    ) {
+      console.log("result");
+      let query = `DELETE FROM tweet WHERE tweet_id=${tweetId};`;
+      let dbArray = await db.run(query);
+      response.send("Tweet Removed");
+    } else {
+      response.status(401);
+      response.send("Invalid Request");
+    }
   }
 );
 
