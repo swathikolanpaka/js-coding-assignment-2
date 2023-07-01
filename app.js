@@ -120,14 +120,18 @@ app.get("/user/tweets/feed/", authorizationToken, async (request, response) => {
   let userName = request.username;
   let userQuery = `SELECT * FROM user WHERE username="${userName}";`;
   let userDetails = await db.get(userQuery);
-
   let userId = userDetails.user_id;
-  let tweetQuery = `SELECT user.username,tweet.tweet,tweet.date_time AS dateTime FROM follower INNER JOIN tweet ON follower.following_user_id = tweet.user_id WHERE follower.follower_user_id = ${userId}
+
+  let tweetQuery = `SELECT user.username,tweet.tweet,tweet.date_time AS dateTime 
+  FROM follower INNER JOIN tweet 
+  ON follower.following_user_id = tweet.user_id 
+  INNER JOIN user ON tweet.user_id=user.user_id
+  WHERE follower.follower_user_id = ${userId}
    ORDER BY
   tweet.date_time DESC
   LIMIT 4;`;
   let tweetResult = await db.get(tweetQuery);
-  resp0nse.send(tweetResult);
+  response.send(tweetResult);
 });
 
 //API 4
