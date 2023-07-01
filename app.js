@@ -130,7 +130,7 @@ app.get("/user/tweets/feed/", authorizationToken, async (request, response) => {
    ORDER BY
   tweet.date_time DESC
   LIMIT 4;`;
-  let tweetResult = await db.get(tweetQuery);
+  let tweetResult = await db.all(tweetQuery);
   response.send(tweetResult);
 });
 
@@ -143,13 +143,13 @@ app.get("/user/following/", authorizationToken, async (request, response) => {
   let userDetails = await db.get(userQuery);
   let userId = userDetails.user_id;
 
-  let tweetQuery = `SELECT user.name 
+  let query = `SELECT user.name 
   FROM follower INNER JOIN user
   ON follower.following_user_id = user.user_id 
   WHERE follower.follower_user_id = ${userId};`;
 
-  let tweetResult = await db.get(tweetQuery);
-  response.send(tweetResult);
+  let resultDetails = await db.all(query);
+  response.send(resultDetails);
 });
 
 //API 5
@@ -161,7 +161,10 @@ app.get("/user/followers/", authorizationToken, async (request, response) => {
   let userDetails = await db.get(userQuery);
   let userId = userDetails.user_id;
 
-  let query = `SELECT user.name FROM user INNER JOIN follower ON user.user_id=follower.follower_user_id WHERE follower.follower_user_id==${userId};`;
+  let query = `SELECT user.name FROM
+   follower INNER JOIN user 
+   ON user.user_id=follower.follower_user_id 
+   WHERE follower.following_user_id=${userId};`;
   let array = await db.all(query);
   response.send(array);
 });
@@ -181,7 +184,7 @@ app.get("/tweets/:tweetId/", authorizationToken, async (request, response) => {
   let userFollowerQuery = `SELECT * FROM 
   follower INNER JOIN user 
   ON follower.following_user_id=user.user_id 
-  WHERE follower.follower_user_id===${userId};`;
+  WHERE follower.follower_user_id=${userId};`;
   let userFollowerDetails = await db.all(userFollowerQuery);
 
   if (
@@ -202,6 +205,31 @@ app.get(
   authorizationToken,
   async (request, response) => {
     let { tweetId } = request.params;
+
+    let userName = request.username;
+    let userQuery = `SELECT * FROM user WHERE username="${userName}";`;
+    let userDetails = await db.get(userQuery);
+    let userId = userDetails.user_id;
+
+    let tweetQuery = `SELECT * FROM tweet WHERE tweet_id=${tweetId};`;
+    let tweetResult = await db.get(tweetQuery);
+
+    let userFollowerQuery = `SELECT * FROM 
+  follower INNER JOIN user 
+  ON follower.following_user_id=user.user_id 
+  WHERE follower.follower_user_id=${userId};`;
+    let userFollowerDetails = await db.all(userFollowerQuery);
+
+    if (
+      userFollowerDetails.some(
+        (item) => item.following_user_id === tweetResult.user_id
+      )
+    ) {
+      console.log("result");
+    } else {
+      response.status(401);
+      response.send("Invalid Request");
+    }
   }
 );
 
@@ -211,6 +239,31 @@ app.get(
   authorizationToken,
   async (request, response) => {
     let { tweetId } = request.params;
+
+    let userName = request.username;
+    let userQuery = `SELECT * FROM user WHERE username="${userName}";`;
+    let userDetails = await db.get(userQuery);
+    let userId = userDetails.user_id;
+
+    let tweetQuery = `SELECT * FROM tweet WHERE tweet_id=${tweetId};`;
+    let tweetResult = await db.get(tweetQuery);
+
+    let userFollowerQuery = `SELECT * FROM 
+  follower INNER JOIN user 
+  ON follower.following_user_id=user.user_id 
+  WHERE follower.follower_user_id=${userId};`;
+    let userFollowerDetails = await db.all(userFollowerQuery);
+
+    if (
+      userFollowerDetails.some(
+        (item) => item.following_user_id === tweetResult.user_id
+      )
+    ) {
+      console.log("result");
+    } else {
+      response.status(401);
+      response.send("Invalid Request");
+    }
   }
 );
 
@@ -226,7 +279,7 @@ app.get("/user/tweets/", authorizationToken, async (request, response) => {
 //API 10
 app.post("/user/tweets/", authorizationToken, async (request, response) => {
   let { tweetId, tweet, userId, dateTime } = request.body;
-  let query = `INSET INTO tweet (tweetId,tweet,user_id,date_time) 
+  let query = `INSERT INTO tweet (tweetId,tweet,user_id,date_time) 
     VALUES
     (
         ${tweetId},
@@ -246,21 +299,19 @@ app.delete(
     let { tweetId } = request.params;
     let tweetQuery = `SELECT * FROM tweet WHERE tweet_id=${tweetId};`;
     let tweetResult = await db.get(tweetQuery);
-    let userFollowerQuery = `SELECT * FROM follower INNER JOIN user ON follower.following_user_id=user.user_id WHERE follower.follower_user_id===tweetResult.user_id;`;
-    let userFollowerDetails = await db.all(userFollowerQuery);
 
-    if (
-      userFollowerDetails.some(
-        (item) => item.following_user_id === tweetResult.user_id
-      )
-    ) {
+    let query = `SELECT * FROM tweet INNER JOIN USER ON tweet.user_id=user.user_id WHERE tweet_id=${tweetId};`;
+    let userDetails = await db.all(query);
+
+    if (userDetails === undefined) {
       console.log("result");
+
+      response.status(401);
+      response.send("Invalid Request");
+    } else {
       let query = `DELETE FROM tweet WHERE tweet_id=${tweetId};`;
       let dbArray = await db.run(query);
       response.send("Tweet Removed");
-    } else {
-      response.status(401);
-      response.send("Invalid Request");
     }
   }
 );
