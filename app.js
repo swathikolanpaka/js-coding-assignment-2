@@ -137,15 +137,31 @@ app.get("/user/tweets/feed/", authorizationToken, async (request, response) => {
 //API 4
 app.get("/user/following/", authorizationToken, async (request, response) => {
   console.log("working");
-  let query = `SELECT user.name  FROM user INNER JOIN follower ON user.user_id=follower.following_user_id;`;
-  let array = await db.all(query);
-  response.send(array);
+
+  let userName = request.username;
+  let userQuery = `SELECT * FROM user WHERE username="${userName}";`;
+  let userDetails = await db.get(userQuery);
+  let userId = userDetails.user_id;
+
+  let tweetQuery = `SELECT user.name 
+  FROM follower INNER JOIN user
+  ON follower.following_user_id = user.user_id 
+  WHERE follower.follower_user_id = ${userId};`;
+
+  let tweetResult = await db.get(tweetQuery);
+  response.send(tweetResult);
 });
 
 //API 5
 app.get("/user/followers/", authorizationToken, async (request, response) => {
   console.log("working");
-  let query = `SELECT user.name FROM user INNER JOIN follower ON user.user_id=follower.follower_user_id;`;
+
+  let userName = request.username;
+  let userQuery = `SELECT * FROM user WHERE username="${userName}";`;
+  let userDetails = await db.get(userQuery);
+  let userId = userDetails.user_id;
+
+  let query = `SELECT user.name FROM user INNER JOIN follower ON user.user_id=follower.follower_user_id WHERE follower.follower_user_id==${userId};`;
   let array = await db.all(query);
   response.send(array);
 });
@@ -153,9 +169,19 @@ app.get("/user/followers/", authorizationToken, async (request, response) => {
 //API 6
 app.get("/tweets/:tweetId/", authorizationToken, async (request, response) => {
   let { tweetId } = request.params;
+
+  let userName = request.username;
+  let userQuery = `SELECT * FROM user WHERE username="${userName}";`;
+  let userDetails = await db.get(userQuery);
+  let userId = userDetails.user_id;
+
   let tweetQuery = `SELECT * FROM tweet WHERE tweet_id=${tweetId};`;
   let tweetResult = await db.get(tweetQuery);
-  let userFollowerQuery = `SELECT * FROM follower INNER JOIN user ON follower.following_user_id=user.user_id WHERE follower.follower_user_id===tweetResult.user_id;`;
+
+  let userFollowerQuery = `SELECT * FROM 
+  follower INNER JOIN user 
+  ON follower.following_user_id=user.user_id 
+  WHERE follower.follower_user_id===${userId};`;
   let userFollowerDetails = await db.all(userFollowerQuery);
 
   if (
